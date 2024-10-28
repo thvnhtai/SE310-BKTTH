@@ -1,0 +1,16 @@
+CREATE TABLE Users (
+    Id INT PRIMARY KEY IDENTITY,
+    Username NVARCHAR(MAX) NOT NULL,
+    PasswordHash VARBINARY(MAX) NOT NULL,
+    PasswordSalt VARBINARY(MAX) NOT NULL,
+    Role NVARCHAR(MAX) NOT NULL
+);
+
+CREATE TABLE Products (
+    Id INT PRIMARY KEY IDENTITY(1,1),
+    Name NVARCHAR(100) NOT NULL,
+    Description NVARCHAR(255),
+    Price DECIMAL(18, 2),
+    ImageUrl NVARCHAR(255),
+    Rating FLOAT,
+);
