@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace API.Models.Entity;
 
 public class Product 

@@ -45,7 +45,7 @@ namespace SE310_BKTTH.Controllers
                 var response = await _httpClient.PostAsJsonAsync("Product", product);
                 if (response.IsSuccessStatusCode)
                 {
-                    return Redirect("http://localhost:5056/Admin/Dashboard");
+                    return Redirect("/Admin/Dashboard");
                 }
                 ModelState.AddModelError("", "Error creating product. Please try again.");
             }
@@ -76,7 +76,7 @@ namespace SE310_BKTTH.Controllers
                 var response = await _httpClient.PutAsJsonAsync($"Product/{id}", product);
                 if (response.IsSuccessStatusCode)
                 {
-                    return Redirect("http://localhost:5056/Admin/Dashboard");
+                    return Redirect("/Admin/Dashboard");
                 }
                 ModelState.AddModelError("", "Error updating product. Please try again.");
             }
@@ -90,7 +90,7 @@ namespace SE310_BKTTH.Controllers
             var response = await _httpClient.DeleteAsync($"Product/{id}");
             if (response.IsSuccessStatusCode)
             {
-                return Redirect("http://localhost:5056/Admin/Dashboard");
+                return Redirect("/Admin/Dashboard");
             }
 
             ModelState.AddModelError("", "Error deleting product. Please try again.");

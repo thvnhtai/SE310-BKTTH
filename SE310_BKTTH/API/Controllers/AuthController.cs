@@ -1,210 +1,81 @@
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using API.Data;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
-using System.Security.Cryptography;
 using API.Models.Entity;
 using Microsoft.EntityFrameworkCore;
 
 namespace API.Controllers
 {
-  [Route("api/v1/[controller]")]
-  [ApiController]
-  public class AuthController : ControllerBase
-  {
-    private readonly IConfiguration _configuration;
-    private readonly DataContext _context;
-
-    public AuthController(IConfiguration configuration, DataContext context)
+    [Route("api/v1/[controller]")]
+    [ApiController]
+    public class AuthController : ControllerBase
     {
-      _configuration = configuration;
-      _context = context;
-    }
+        private readonly DataContext _context;
 
-    [HttpPost("register")]
-    public async Task<IActionResult> Register(RegisterModel register)
-    {
-      if (await _context.Users.AnyAsync(u => u.Username == register.Username))
-      {
-        return BadRequest("Username already exists");
-      }
+        public AuthController(DataContext context)
+        {
+            _context = context;
+        }
 
-      CreatePasswordHash(register.Password, out byte[] passwordHash, out byte[] passwordSalt);
-
-      var user = new User
-      {
-        Username = register.Username,
-        PasswordHash = passwordHash,
-        PasswordSalt = passwordSalt,
-        Role = register.Role
-      };
-
-      _context.Users.Add(user);
-      await _context.SaveChangesAsync();
-
-      return Ok(user);
-    }
-
-    [HttpPost("login")]
-    public async Task<IActionResult> Login(LoginModel login)
-    {
-      var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == login.Username);
-
-      if (user == null)
-      {
-        return Unauthorized("Invalid username");
-      }
-
-      if (!VerifyPasswordHash(login.Password, user.PasswordHash, user.PasswordSalt))
-      {
-        return Unauthorized("Invalid password");
-      }
-
-      string token = CreateToken(user);
-      string refreshToken = CreateRefreshToken();
-
-      var refreshTokenModel = new RefreshToken
-      {
-        Token = refreshToken,
-        UserId = user.Id.ToString(),
-        ExpiryDate = DateTime.Now.AddDays(7),
-        IsRevoked = false
-      };
-
-      _context.RefreshTokens.Add(refreshTokenModel);
-      await _context.SaveChangesAsync();
-
-      return Ok(new
-      {
-        token,
-        refreshToken
-      });
-    }
-
-    [HttpPost("refresh-token")]
-    public async Task<IActionResult> RefreshToken(string token, string refreshToken)
-    {
-      var user = await _context.Users.FirstOrDefaultAsync(u => u.Id.ToString() == GetUserIdFromJwt(token));
-
-      if (user == null)
-      {
-        return Unauthorized("Invalid token");
-      }
-
-      var refreshTokenModel = await _context.RefreshTokens.FirstOrDefaultAsync(r => r.Token == refreshToken);
-
-      if (refreshTokenModel == null || refreshTokenModel.IsRevoked || refreshTokenModel.ExpiryDate < DateTime.Now)
-      {
-        return Unauthorized("Invalid refresh token");
-      }
-
-      string newToken = CreateToken(user);
-      string newRefreshToken = CreateRefreshToken();
-
-      refreshTokenModel.Token = newRefreshToken;
-      refreshTokenModel.ExpiryDate = DateTime.Now.AddDays(7);
-
-      _context.RefreshTokens.Update(refreshTokenModel);
-      await _context.SaveChangesAsync();
-
-      return Ok(new
-      {
-        token = newToken,
-        refreshToken = newRefreshToken
-      });
-    }
-
-    [HttpPost("revoke-token")]
-    [Authorize]
-    public async Task<IActionResult> RevokeToken(string refreshToken)
-    {
-      var refreshTokenModel = await _context.RefreshTokens.FirstOrDefaultAsync(r => r.Token == refreshToken);
-
-      if (refreshTokenModel == null)
-      {
-        return NotFound("Refresh token not found");
-      }
-
-      refreshTokenModel.IsRevoked = true;
-      _context.RefreshTokens.Update(refreshTokenModel);
-      await _context.SaveChangesAsync();
-
-      return Ok("Refresh token revoked");
-    }
-
-    private string CreateToken(User user)
-    {
-      List<Claim> claims = new List<Claim>
+        [HttpPost("register")]
+        public async Task<IActionResult> Register(RegisterModel register)
+        {
+            if (await _context.Users.AnyAsync(u => u.Username == register.Username))
             {
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.Role, user.Role)
+                return BadRequest("Username already exists");
+            }
+
+            CreatePasswordHash(register.Password, out byte[] passwordHash, out byte[] passwordSalt);
+
+            var user = new User
+            {
+                Username = register.Username,
+                PasswordHash = passwordHash,
+                PasswordSalt = passwordSalt,
+                Role = register.Role
             };
 
-      var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration.GetSection("AppSettings:Token").Value));
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
 
-      var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
+            return Ok(user);
+        }
 
-      var token = new JwtSecurityToken(
-          claims: claims,
-          expires: DateTime.Now.AddMinutes(30),
-          signingCredentials: creds
-      );
-
-      var jwt = new JwtSecurityTokenHandler().WriteToken(token);
-
-      return jwt;
-    }
-
-    private string CreateRefreshToken()
-    {
-      var randomNumber = new byte[32];
-      using var rng = RandomNumberGenerator.Create();
-      rng.GetBytes(randomNumber);
-      return Convert.ToBase64String(randomNumber);
-    }
-
-    private string GetUserIdFromJwt(string token)
-    {
-      var tokenHandler = new JwtSecurityTokenHandler();
-      var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration.GetSection("AppSettings:Token").Value));
-
-      try
-      {
-        var tokenValidationParameters = new TokenValidationParameters
+        [HttpPost("login")]
+        public async Task<IActionResult> Login(LoginModel login)
         {
-          ValidateIssuerSigningKey = true,
-          IssuerSigningKey = key,
-          ValidateIssuer = false,
-          ValidateAudience = false,
-          ClockSkew = TimeSpan.Zero
-        };
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == login.Username);
 
-        var principal = tokenHandler.ValidateToken(token, tokenValidationParameters, out SecurityToken securityToken);
+            if (user == null || !VerifyPasswordHash(login.Password, user.PasswordHash, user.PasswordSalt))
+            {
+                return Unauthorized("Invalid username or password");
+            }
 
-        return principal.FindFirstValue(ClaimTypes.NameIdentifier);
-      }
-      catch (Exception ex)
-      {
-        return null;
-      }
+            return Ok(new
+            {
+                message = "Login successful",
+                user = new
+                {
+                    user.Username,
+                    user.Role // Include any other user info you want to return
+                }
+            });
+        }
+
+        private void CreatePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
+        {
+            using var hmac = new HMACSHA512();
+            passwordSalt = hmac.Key;
+            passwordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
+        }
+
+        private bool VerifyPasswordHash(string password, byte[] passwordHash, byte[] passwordSalt)
+        {
+            using var hmac = new HMACSHA512(passwordSalt);
+            var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
+            return computedHash.SequenceEqual(passwordHash);
+        }
     }
-
-    private void CreatePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
-    {
-      using var hmac = new HMACSHA512();
-      passwordSalt = hmac.Key;
-      passwordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
-    }
-
-    private bool VerifyPasswordHash(string password, byte[] passwordHash, byte[] passwordSalt)
-    {
-      using var hmac = new HMACSHA512(passwordSalt);
-      var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
-      return computedHash.SequenceEqual(passwordHash);
-    }
-  }
 }

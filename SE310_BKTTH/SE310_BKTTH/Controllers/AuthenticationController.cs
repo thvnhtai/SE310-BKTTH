@@ -1,64 +1,58 @@
 using Microsoft.AspNetCore.Mvc;
-using SE310_BKTTH.Models;
 
-namespace ToeicStudyNetwork.Controllers;
+namespace SE310_BKTTH.Controllers;
 
 public class AuthenticationController : Controller
 {
     private readonly HttpClient _httpClient;
+    private readonly ILogger<AuthenticationController> _logger;
 
-    public AuthenticationController(HttpClient httpClient)
+    public AuthenticationController(HttpClient httpClient, ILogger<AuthenticationController> logger)
     {
         _httpClient = httpClient;
-    }
-    
-    // GET
-    public IActionResult Index()
-    {
-        return View();
+        _logger = logger;
     }
     
     [HttpPost]
-    public async Task<IActionResult> LoginUser(string email, string password)
+    public async Task<IActionResult> SignIn(string username, string password)
     {
         // Prepare login data from form input
         var loginData = new
         {
-            Username = email,
+            Username = username,
             Password = password
         };
 
         // Call the authentication API
         var response = await _httpClient.PostAsJsonAsync("http://localhost:5017/api/v1/Auth/login", loginData);
+        // Log the response status and content
+        _logger.LogInformation("SignIn API Response: {StatusCode}", response.StatusCode);
+        var content = await response.Content.ReadAsStringAsync();
+        _logger.LogInformation("Response Content: {Content}", content);
 
         if (response.IsSuccessStatusCode)
         {
-            var tokens = await response.Content.ReadFromJsonAsync<TokenResponse>();
-        
-
             return RedirectToAction("Index", "Home");
         }
 
         // Handle login failure
         ModelState.AddModelError(string.Empty, "Login failed. Please check your credentials.");
-        return Redirect($"/Home/Index");
+        return View();
     }
-
-
 
     public IActionResult SignIn()
     {
         return View();
     }
-    
+ 
     [HttpPost]
-    public async Task<IActionResult> RegisterUser(string username, string email, string password, string confirmPassword)
+    public async Task<IActionResult> SignUp(string username, string email, string password, string confirmPassword)
     {
         // Validate passwords match
         if (password != confirmPassword)
         {
             ModelState.AddModelError(string.Empty, "Passwords do not match.");
-            return View("SignUp");
+            return View();
         }
 
         // Prepare the registration data from form input
@@ -81,11 +75,12 @@ public class AuthenticationController : Controller
     
         // Handle registration failure
         ModelState.AddModelError(string.Empty, "Registration failed. Please try again.");
-        return View("SignUp");  // Return to the SignUp view with error messages
+        return View();
     }
 
     public IActionResult SignUp()
     {
         return View();
     }
+
 }

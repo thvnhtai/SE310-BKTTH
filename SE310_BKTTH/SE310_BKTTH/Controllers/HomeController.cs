@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
-using SE310_BKTTH.Data;
+using Microsoft.Extensions.Logging;
 using SE310_BKTTH.Models;
 
 namespace SE310_BKTTH.Controllers;
@@ -8,11 +8,13 @@ namespace SE310_BKTTH.Controllers;
 public class HomeController : Controller
 {
     private readonly HttpClient _httpClient;
-    
-    public HomeController(HttpClient httpClient)
+    private readonly ILogger<HomeController> _logger; // Thêm trường logger
+
+    public HomeController(HttpClient httpClient, ILogger<HomeController> logger) // Thêm logger vào constructor
     {
         _httpClient = httpClient;
         _httpClient.BaseAddress = new Uri("http://localhost:5017/api/v1/");
+        _logger = logger; 
     }
 
     public async Task<IActionResult> Index()

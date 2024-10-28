@@ -1,3 +1,6 @@
+using System;
+using System.Collections;
+using System.Linq;
 using API.Data;
 using API.Interfaces;
 using API.Models;
@@ -24,13 +27,9 @@ public class UserRepository : IUserRepository
         throw new NotImplementedException();
     }
 
-    public User AddUser(AddUserDto addUserDto)
-    {
-        throw new NotImplementedException();
-    }
-
     public User UpdateUser(int id, UpdateUserDto updateUserDto)
     {
+        
         throw new NotImplementedException();
     }
 
